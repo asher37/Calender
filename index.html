@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Calendar App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-gap: 5px;
+            margin-bottom: 20px;
+        }
+        .calendar div {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .calendar div.event {
+            background-color: lightgreen;
+        }
+        .event-form {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .event-form input, .event-form button {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Simple Calendar</h1>
+<div class="event-form">
+    <input type="text" id="eventInput" placeholder="Enter event">
+    <button id="addEventButton">Add Event</button>
+</div>
+
+<div id="calendar" class="calendar"></div>
+
+<script>
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const calendarElement = document.getElementById('calendar');
+    const eventInput = document.getElementById('eventInput');
+    const addEventButton = document.getElementById('addEventButton');
+
+    let events = JSON.parse(localStorage.getItem('events')) || {};
+
+    function renderCalendar() {
+        calendarElement.innerHTML = ''; // Clear the calendar
+
+        // Create the days of the week header
+        daysOfWeek.forEach(day => {
+            const dayElement = document.createElement('div');
+            dayElement.textContent = day;
+            calendarElement.appendChild(dayElement);
+        });
+
+        // Get the current month and year
+        const currentDate = new Date();
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        // Get the first day of the month
+        const firstDayOfMonth = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Create empty slots before the first day of the month
+        for (let i = 0; i < firstDayOfMonth; i++) {
+            const emptySlot = document.createElement('div');
+            calendarElement.appendChild(emptySlot);
+        }
+
+        // Create day cells for the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayElement = document.createElement('div');
+            dayElement.textContent = day;
+
+            // Add event if it exists
+            if (events[day]) {
+                dayElement.classList.add('event');
+                dayElement.textContent += `: ${events[day]}`;
+            }
+
+            // Add event to the cell on click
+            dayElement.addEventListener('click', () => {
+                const dayEvent = prompt(`Enter an event for ${day}:`, events[day] || '');
+                if (dayEvent === null || dayEvent === '') {
+                    delete events[day]; // Remove event
+                } else {
+                    events[day] = dayEvent; // Add/Update event
+                }
+                localStorage.setItem('events', JSON.stringify(events));
+                renderCalendar();
+            });
+
+            calendarElement.appendChild(dayElement);
+        }
+    }
+
+    addEventButton.addEventListener('click', () => {
+        const eventText = eventInput.value.trim();
+        if (eventText === '') return;
+
+        const day = prompt("Which day would you like to add the event to?");
+        if (day && !isNaN(day) && day >= 1 && day <= 31) {
+            events[day] = eventText;
+            localStorage.setItem('events', JSON.stringify(events));
+            eventInput.value = ''; // Clear the input
+            renderCalendar();
+        }
+    });
+
+    renderCalendar();
+</script>
+
+</body>
+</html>
