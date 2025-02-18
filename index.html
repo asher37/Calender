@@ -30,11 +30,18 @@
         .event-form input, .event-form button {
             margin-right: 5px;
         }
+        .month-name {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 
 <h1>Simple Calendar</h1>
+<div id="calendarMonth" class="month-name"></div>
+
 <div class="event-form">
     <input type="text" id="eventInput" placeholder="Enter event">
     <button id="addEventButton">Add Event</button>
@@ -42,80 +49,119 @@
 
 <div id="calendar" class="calendar"></div>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
+
 <script>
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const calendarElement = document.getElementById('calendar');
-    const eventInput = document.getElementById('eventInput');
-    const addEventButton = document.getElementById('addEventButton');
+// Your Firebase Config
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
 
-    let events = JSON.parse(localStorage.getItem('events')) || {};
+// Initialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.database(app);
 
-    function renderCalendar() {
-        calendarElement.innerHTML = ''; // Clear the calendar
+const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const calendarElement = document.getElementById('calendar');
+const eventInput = document.getElementById('eventInput');
+const addEventButton = document.getElementById('addEventButton');
+const calendarMonth = document.getElementById('calendarMonth');
 
-        // Create the days of the week header
-        daysOfWeek.forEach(day => {
-            const dayElement = document.createElement('div');
-            dayElement.textContent = day;
-            calendarElement.appendChild(dayElement);
-        });
+let events = {}; // Store events for the month
 
-        // Get the current month and year
-        const currentDate = new Date();
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
+function renderCalendar() {
+    calendarElement.innerHTML = ''; // Clear the calendar
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const monthName = currentDate.toLocaleString('default', { month: 'long' });
 
-        // Get the first day of the month
-        const firstDayOfMonth = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // Display the month name
+    calendarMonth.textContent = `${monthName} ${year}`;
 
-        // Create empty slots before the first day of the month
-        for (let i = 0; i < firstDayOfMonth; i++) {
-            const emptySlot = document.createElement('div');
-            calendarElement.appendChild(emptySlot);
-        }
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        // Create day cells for the month
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dayElement = document.createElement('div');
-            dayElement.textContent = day;
-
-            // Add event if it exists
-            if (events[day]) {
-                dayElement.classList.add('event');
-                dayElement.textContent += `: ${events[day]}`;
-            }
-
-            // Add event to the cell on click
-            dayElement.addEventListener('click', () => {
-                const dayEvent = prompt(`Enter an event for ${day}:`, events[day] || '');
-                if (dayEvent === null || dayEvent === '') {
-                    delete events[day]; // Remove event
-                } else {
-                    events[day] = dayEvent; // Add/Update event
-                }
-                localStorage.setItem('events', JSON.stringify(events));
-                renderCalendar();
-            });
-
-            calendarElement.appendChild(dayElement);
-        }
-    }
-
-    addEventButton.addEventListener('click', () => {
-        const eventText = eventInput.value.trim();
-        if (eventText === '') return;
-
-        const day = prompt("Which day would you like to add the event to?");
-        if (day && !isNaN(day) && day >= 1 && day <= 31) {
-            events[day] = eventText;
-            localStorage.setItem('events', JSON.stringify(events));
-            eventInput.value = ''; // Clear the input
-            renderCalendar();
-        }
+    // Create the days of the week header
+    daysOfWeek.forEach(day => {
+        const dayElement = document.createElement('div');
+        dayElement.textContent = day;
+        calendarElement.appendChild(dayElement);
     });
 
-    renderCalendar();
+    // Create empty slots before the first day of the month
+    for (let i = 0; i < firstDayOfMonth; i++) {
+        const emptySlot = document.createElement('div');
+        calendarElement.appendChild(emptySlot);
+    }
+
+    // Create day cells for the month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayElement = document.createElement('div');
+        dayElement.textContent = day;
+
+        // Add event if it exists
+        if (events[day]) {
+            dayElement.classList.add('event');
+            dayElement.textContent += `: ${events[day]}`;
+        }
+
+        // Add event to the cell on click
+        dayElement.addEventListener('click', () => {
+            const dayEvent = prompt(`Enter an event for ${day}:`, events[day] || '');
+            if (dayEvent === null || dayEvent === '') {
+                delete events[day]; // Remove event
+            } else {
+                events[day] = dayEvent; // Add/Update event
+            }
+            saveEvents();
+            renderCalendar();
+        });
+
+        calendarElement.appendChild(dayElement);
+    }
+}
+
+function saveEvents() {
+    const currentDate = new Date();
+    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+    // Save events to Firebase for the current month
+    firebase.database().ref(`events/${monthKey}`).set(events);
+}
+
+// Load events from Firebase
+function loadEvents() {
+    const currentDate = new Date();
+    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+    firebase.database().ref(`events/${monthKey}`).on('value', snapshot => {
+        events = snapshot.val() || {};
+        renderCalendar();
+    });
+}
+
+// Event listener for adding an event
+addEventButton.addEventListener('click', () => {
+    const eventText = eventInput.value.trim();
+    if (eventText === '') return;
+
+    const day = prompt("Which day would you like to add the event to?");
+    if (day && !isNaN(day) && day >= 1 && day <= 31) {
+        events[day] = eventText;
+        saveEvents();
+        eventInput.value = ''; // Clear the input
+        renderCalendar();
+    }
+});
+
+loadEvents();
 </script>
 
 </body>
